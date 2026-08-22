@@ -14,3 +14,8 @@
   New projects don't auto-grant Cloud Build roles. Fixed with
   roles/cloudbuild.builds.builder + roles/aiplatform.user.
 - Deployed: https://teachers-hours-455997608773.europe-west1.run.app
+- Deployed service 404'd on the model while local worked: .env is gitignored,
+  so it never shipped. Cloud Run defaults GOOGLE_CLOUD_LOCATION to the deploy
+  --region (europe-west1), which doesn't serve gemini-3.5-flash. Fixed by
+  setting env vars on the service post-deploy; wrapped both steps in deploy.sh
+  so they can't drift apart again.
