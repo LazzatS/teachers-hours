@@ -1,45 +1,52 @@
-import uuid
-from google.cloud import firestore
 from google.adk.agents import Agent
+from .tools import (
+    save_skills,
+    edit_skill,
+    remove_skill,
+    add_skill,
+    approve_skills,
+    list_approved_skills,
+    save_problems
+)
 
-DB_NAME = "teachers-hours"
-db = firestore.Client(database=DB_NAME)
-
-def save_skills(topic: str, skills: list[str]) -> dict:
-    """Saves a topic and its skill breakdown to Firestore.
-
-    Args:
-        topic: The school topic, e.g. "Chemistry: Atomic Structure".
-        skills: Ordered list of skills a student must master.
-
-    Returns:
-        Status, the generated topic_id, and how many skills were saved.
-    """
-    topic_id = str(uuid.uuid4())[:8]
-    topic_ref = db.collection("topics").document(topic_id)
-    topic_ref.set({
-        "title": topic,
-        "status": "skills_drafted",
-        "created_at": firestore.SERVER_TIMESTAMP,
-    })
-    for i, name in enumerate(skills):
-        topic_ref.collection("skills").document(f"s{i + 1}").set({
-            "name": name,
-            "order": i + 1,
-            "approved": False,
-        })
-    return {"status": "ok", "topic_id": topic_id, "skill_count": len(skills)}
-
-
-root_agent = Agent(
+skill_agent = Agent(
     name="skill_agent",
     model="gemini-3.5-flash",
-    description="Breaks a school topic into teachable skills and saves them.",
+    description="Breaks a school topic into concrete, assessable skills.",
     instruction=(
-        "When the teacher gives you a school topic, break it into the distinct "
-        "skills a student must master to understand it. Keep skills concrete "
-        "and individually assessable. Then call save_skills with the topic and "
-        "the ordered skill list. Tell the teacher the topic_id and the skills."
+        "Break the teacher's topic into distinct skills a student must master. "
+        "Each skill must be concrete and individually assessable. Call "
+        "save_skills, then report the topic_id and the skills, and ask the "
+        "teacher to approve them."
+        "The teacher may accept the skills, reword one, remove one, or add one. "
+        "Use edit_skill, remove_skill or add_skill as asked, show the revised list, "
+        "and ask again. Only call approve_skills when the teacher confirms the whole "
+        "list is right."
     ),
-    tools=[save_skills],
+    tools=[save_skills, approve_skills, edit_skill, remove_skill, add_skill],
+)
+
+problem_agent = Agent(
+    name="problem_agent",
+    model="gemini-3.5-flash",
+    description="Writes leveled practice problems for approved skills.",
+    instruction=(
+        "Call list_approved_skills for the topic_id. For each approved skill, "
+        "write three problems — low, medium and hard — that test only that "
+        "skill, and call save_problems once per skill. Never generate problems "
+        "for skills that are not approved."
+    ),
+    tools=[list_approved_skills, save_problems],
+)
+
+root_agent = Agent(
+    name="coordinator",
+    model="gemini-3.5-flash",
+    description="Coordinates lesson preparation for a teacher.",
+    instruction=(
+        "You coordinate lesson prep. Send topic breakdown and approval to "
+        "skill_agent. Once skills are approved, hand off to problem_agent to "
+        "generate leveled problems. Never skip the teacher's approval step."
+    ),
+    sub_agents=[skill_agent, problem_agent],
 )
