@@ -21,3 +21,11 @@
   so they can't drift apart again.
 - Named vs (default) Firestore databases, and that client libraries assume 
   (default) unless told otherwise.
+- Split one agent into a coordinator with skill_agent + problem_agent
+  sub-agents. Approval is enforced structurally: list_approved_skills filters
+  on approved==True, so problem_agent literally cannot see unapproved skills.
+- All-or-nothing approval didn't match how teachers review — added
+  edit_skill / remove_skill / add_skill so corrections happen in conversation.
+- Seeded 4 simulated students with a designed pass-rate pattern (one skill
+  passes 4/4, another 1/4) so aggregation has a real verdict to produce.
+  Pub/Sub events confirmed via `subscriptions pull`.
