@@ -19,3 +19,5 @@
   --region (europe-west1), which doesn't serve gemini-3.5-flash. Fixed by
   setting env vars on the service post-deploy; wrapped both steps in deploy.sh
   so they can't drift apart again.
+- Named vs (default) Firestore databases, and that client libraries assume 
+  (default) unless told otherwise.
