@@ -29,3 +29,22 @@
 - Seeded 4 simulated students with a designed pass-rate pattern (one skill
   passes 4/4, another 1/4) so aggregation has a real verdict to produce.
   Pub/Sub events confirmed via `subscriptions pull`.
+
+### Aug 23
+- Grader deployed as a second Cloud Run service, triggered by Pub/Sub push
+  rather than by conversation. Build failed twice first: main.py wasn't saved
+  into grader/, and I deployed from the parent dir (--source . uploads the
+  *current* folder).
+- Secured with OIDC instead of --allow-unauthenticated: dedicated
+  pubsub-invoker SA with run.invoker, Pub/Sub granted
+  serviceAccountTokenCreator, subscription recreated with push auth.
+- The idempotency guard earned itself on the first run — grading takes several
+  seconds, ack deadlines lapsed, and Pub/Sub redelivered. "already graded,
+  skipping" throughout the logs. Without it, half the class double-graded.
+- Split failure handling: JSONDecodeError escalates to the teacher
+  (needs_review), transient errors return 500 so Pub/Sub retries. Same-looking
+  errors, opposite correct responses.
+- One submission never arrived — publish-side loss, nothing in the grader logs.
+  Republished by hand. At-least-once delivery only holds if the publish lands.
+- Grader independently reproduced the seeded pattern (s1 4/4 → s4 1/4), so it's
+  judging understanding, not matching strings.
