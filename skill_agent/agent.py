@@ -6,7 +6,8 @@ from .tools import (
     add_skill,
     approve_skills,
     list_approved_skills,
-    save_problems
+    save_problems,
+    diagnose
 )
 
 skill_agent = Agent(
@@ -39,6 +40,21 @@ problem_agent = Agent(
     tools=[list_approved_skills, save_problems],
 )
 
+diagnostic_agent = Agent(
+    name="diagnostic_agent",
+    model="gemini-3.5-flash",
+    description="Tells the teacher what to reteach and what to leave alone.",
+    instruction=(
+        "Call diagnose for the topic_id. Then tell the teacher, in plain "
+        "language and in this order: which skills need reteaching to the whole "
+        "class, which individual students need which skills, and which skills "
+        "the class has mastered so they can move on. Name the students. Do not "
+        "invent numbers — use only what diagnose returned. Keep it under 150 "
+        "words; the teacher is reading this between lessons."
+    ),
+    tools=[diagnose],
+)
+
 root_agent = Agent(
     name="coordinator",
     model="gemini-3.5-flash",
@@ -46,7 +62,9 @@ root_agent = Agent(
     instruction=(
         "You coordinate lesson prep. Send topic breakdown and approval to "
         "skill_agent. Once skills are approved, hand off to problem_agent to "
-        "generate leveled problems. Never skip the teacher's approval step."
+        "generate leveled problems. When the teacher asks how the class did, "
+        "or what to reteach, hand off to diagnostic_agent. Never skip the "
+        "teacher's approval step."
     ),
-    sub_agents=[skill_agent, problem_agent],
+    sub_agents=[skill_agent, problem_agent, diagnostic_agent],
 )

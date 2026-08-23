@@ -128,3 +128,73 @@ def save_problems(topic_id: str, skill_id: str, low: str, medium: str, hard: str
     for level, text in (("low", low), ("medium", medium), ("hard", hard)):
         ref.document(level).set({"level": level, "text": text})
     return {"status": "ok", "skill_id": skill_id}
+
+# Thresholds for the reteach decision. Deliberately explicit and tunable:
+# this is the pedagogical judgment call at the heart of the product, so it
+# lives in code a teacher can inspect, not inside a prompt.
+MASTERED_AT = 0.85       # at or above: class has it, move on
+CLASS_GAP_AT = 0.35      # at or below: reteach to the whole class
+
+
+def diagnose(topic_id: str) -> dict:
+    """Aggregates graded submissions per skill and decides what to reteach.
+
+    Args:
+        topic_id: The topic identifier.
+
+    Returns:
+        Per-skill pass rates with a verdict of mastered, individual_gap or
+        class_gap, plus the students who missed each skill.
+        Use each skill's name exactly as diagnose returned it.
+        For class_gap skills, do not name students; the whole class relearns it. 
+        Name students only for individual_gap.
+    """
+    topic_ref = db.collection("topics").document(topic_id)
+    skills = {s.id: s.to_dict()["name"] for s in topic_ref.collection("skills").stream()}
+
+    tally = {sid: {"correct": 0, "total": 0, "missed_by": []} for sid in skills}
+    ungraded = 0
+
+    for sub in topic_ref.collection("submissions").stream():
+        d = sub.to_dict()
+        sid = d.get("skill_id")
+        if sid not in tally:
+            continue
+        if not d.get("graded"):
+            ungraded += 1
+            continue
+        tally[sid]["total"] += 1
+        if d.get("correct"):
+            tally[sid]["correct"] += 1
+        else:
+            tally[sid]["missed_by"].append(d["student_id"])
+
+    results = []
+    for sid, t in sorted(tally.items()):
+        if t["total"] == 0:
+            continue
+        rate = t["correct"] / t["total"]
+        if rate >= MASTERED_AT:
+            verdict = "mastered"
+        elif rate <= CLASS_GAP_AT:
+            verdict = "class_gap"
+        else:
+            verdict = "individual_gap"
+        results.append({
+            "skill_id": sid,
+            "skill": skills[sid],
+            "pass_rate": round(rate, 2),
+            "correct": t["correct"],
+            "total": t["total"],
+            "verdict": verdict,
+            "missed_by": sorted(t["missed_by"]),
+        })
+
+    topic_ref.collection("verdicts").document("latest").set({
+        "results": results,
+        "ungraded": ungraded,
+        "computed_at": firestore.SERVER_TIMESTAMP,
+        "thresholds": {"mastered_at": MASTERED_AT, "class_gap_at": CLASS_GAP_AT},
+    })
+
+    return {"status": "ok", "results": results, "ungraded": ungraded}

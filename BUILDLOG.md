@@ -48,3 +48,13 @@
   Republished by hand. At-least-once delivery only holds if the publish lands.
 - Grader independently reproduced the seeded pattern (s1 4/4 → s4 1/4), so it's
   judging understanding, not matching strings.
+- Aggregation + reteach verdict. Deliberate split: pass rates and
+  classification are computed in Python; Gemini only turns the numbers into
+  teacher-readable advice. The pedagogical judgment is auditable, not
+  buried in a prompt.
+- First threshold (class_gap at 0.50) flagged 5 of 7 skills for whole-class
+  reteaching — technically correct, useless to a teacher. Dropped to 0.35 and
+  the output became one class-wide gap plus named individuals. The threshold
+  IS the product decision; that's the argument for keeping it in code where a
+  teacher could tune it per class.
+- Third sub-agent (diagnostic_agent) added to the coordinator.
