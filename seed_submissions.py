@@ -43,8 +43,10 @@ def answer_pair(problem_text: str) -> dict:
         f"Problem: {problem_text}\n\n"
         "Return only JSON, no markdown fences:\n"
         '{"correct": "...", "wrong": "..."}\n'
-        "The wrong answer must reflect a plausible student misconception, "
-        "not gibberish or a blank."
+        "The wrong answer must reflect a plausible student mistake with the "
+        "working shown. For calculation problems, vary the kind of mistake: "
+        "sometimes the wrong formula (a conceptual error), sometimes the right "
+        "method with a slipped unit conversion or arithmetic error."
     )
     resp = client.models.generate_content(model="gemini-3.5-flash", contents=prompt)
     text = resp.text.replace("```json", "").replace("```", "").strip()

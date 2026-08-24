@@ -21,19 +21,32 @@ client = genai.Client(vertexai=True, project=PROJECT_ID, location="global")
 
 
 def grade(problem: str, skill: str, answer: str) -> dict:
-    """Grades one answer against the skill it was meant to test."""
+    """Grades one answer, separating conceptual failure from procedural slips."""
     prompt = (
         f"Skill being tested: {skill}\n"
         f"Problem: {problem}\n"
         f"Student answer: {answer}\n\n"
-        "Decide whether the student has demonstrated this skill. Judge the "
-        "understanding, not the wording or spelling. If it is wrong, name the "
-        "specific misconception in one sentence a student would understand.\n\n"
+        "Judge the skill under test — not spelling, wording, or presentation.\n\n"
+        "Classify carefully:\n"
+        "- If the method is right but the arithmetic or algebra slipped, the "
+        "student HAS demonstrated the skill: skill_demonstrated true, "
+        "answer_correct false, error_type 'procedural'.\n"
+        "- If the failure comes from an earlier skill they should already have "
+        "(arithmetic, fractions, rearranging, units), error_type is "
+        "'prerequisite' and misconception names which prerequisite.\n"
+        "- Use 'target_skill' only when they genuinely have not grasped the "
+        "skill being tested.\n"
+        "- Use 'incomplete' if they stopped partway, 'unclear' if you cannot "
+        "tell what they did.\n\n"
         "Return only JSON, no markdown fences:\n"
-        '{"correct": true or false, "feedback": "one or two sentences"}'
+        '{"skill_demonstrated": true, "answer_correct": true, '
+        '"error_type": "none", "misconception": "", '
+        '"feedback": "one or two sentences addressed to the student"}'
     )
     resp = client.models.generate_content(model="gemini-3.5-flash", contents=prompt)
-    text = resp.text.replace("```json", "").replace("```", "").strip()
+    text = (resp.text or "").replace("```json", "").replace("```", "").strip()
+    if not text:
+        raise json.JSONDecodeError("empty model response", "", 0)
     return json.loads(text)
 
 
@@ -90,12 +103,18 @@ async def handle(request: Request) -> Response:
 
     sub_ref.update({
         "graded": True,
-        "correct": bool(result["correct"]),
+        "skill_demonstrated": bool(result["skill_demonstrated"]),
+        "answer_correct": bool(result["answer_correct"]),
+        "error_type": result.get("error_type", "unclear"),
+        "misconception": result.get("misconception", ""),
+        # Alias kept so anything still reading `correct` keeps working.
+        "correct": bool(result["skill_demonstrated"]),
         "feedback": result["feedback"],
         "feedback_released": False,
         "graded_at": firestore.SERVER_TIMESTAMP,
     })
-    print(f"graded {submission_id}: correct={result['correct']}")
+    print(f"graded {submission_id}: skill={result['skill_demonstrated']} "
+          f"type={result.get('error_type')}")
     return Response(status_code=204)
 
 

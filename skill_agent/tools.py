@@ -144,15 +144,15 @@ def diagnose(topic_id: str) -> dict:
 
     Returns:
         Per-skill pass rates with a verdict of mastered, individual_gap or
-        class_gap, plus the students who missed each skill.
-        Use each skill's name exactly as diagnose returned it.
-        For class_gap skills, do not name students; the whole class relearns it. 
-        Name students only for individual_gap.
+        class_gap, the students who missed each skill, and per-student counts
+        of prerequisite gaps and procedural slips.
     """
     topic_ref = db.collection("topics").document(topic_id)
     skills = {s.id: s.to_dict()["name"] for s in topic_ref.collection("skills").stream()}
 
     tally = {sid: {"correct": 0, "total": 0, "missed_by": []} for sid in skills}
+    prerequisite_gaps = {}
+    procedural_slips = {}
     ungraded = 0
 
     for sub in topic_ref.collection("submissions").stream():
@@ -163,11 +163,26 @@ def diagnose(topic_id: str) -> dict:
         if not d.get("graded"):
             ungraded += 1
             continue
+
+        student = d["student_id"]
+        error_type = d.get("error_type", "")
+
+        # Pass rate is about the skill, so a procedural slip still counts as
+        # having demonstrated it. Fall back to `correct` for older documents.
+        demonstrated = d.get("skill_demonstrated", d.get("correct", False))
+
         tally[sid]["total"] += 1
-        if d.get("correct"):
+        if demonstrated:
             tally[sid]["correct"] += 1
         else:
-            tally[sid]["missed_by"].append(d["student_id"])
+            tally[sid]["missed_by"].append(student)
+
+        if error_type in ("prerequisite", "procedural"):
+            bucket = prerequisite_gaps if error_type == "prerequisite" else procedural_slips
+            bucket.setdefault(student, []).append({
+                "skill": skills[sid],
+                "misconception": d.get("misconception", ""),
+            })
 
     results = []
     for sid, t in sorted(tally.items()):
@@ -193,8 +208,16 @@ def diagnose(topic_id: str) -> dict:
     topic_ref.collection("verdicts").document("latest").set({
         "results": results,
         "ungraded": ungraded,
+        "prerequisite_gaps": prerequisite_gaps,
+        "procedural_slips": procedural_slips,
         "computed_at": firestore.SERVER_TIMESTAMP,
         "thresholds": {"mastered_at": MASTERED_AT, "class_gap_at": CLASS_GAP_AT},
     })
 
-    return {"status": "ok", "results": results, "ungraded": ungraded}
+    return {
+        "status": "ok",
+        "results": results,
+        "ungraded": ungraded,
+        "prerequisite_gaps": prerequisite_gaps,
+        "procedural_slips": procedural_slips,
+    }

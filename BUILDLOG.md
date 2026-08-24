@@ -58,3 +58,18 @@
   IS the product decision; that's the argument for keeping it in code where a
   teacher could tune it per class.
 - Third sub-agent (diagnostic_agent) added to the coordinator.
+
+### Aug 24
+- grader returns skill_demonstrated / answer_correct / error_type /
+  misconception. A procedural slip (right method, wrong arithmetic) no longer
+  counts against a skill's pass rate — reteaching a concept the student
+  already has is the wrong response to a dropped decimal.
+- MCQ problems break the taxonomy — a student who picks "B" shows no working,
+  so there's nothing to classify. Problem agent now generates open-response only.
+- First aggregation of the new error types returned counts ({"madina": 2}),
+  which tells a teacher nothing. Changed it to carry the skill name and the
+  grader's misconception text. Aggregation should preserve evidence, not
+  just tally it.
+- Seed script now generates three answer kinds per problem and records
+  seeded_intent, so the grader's classification can be checked against what
+  was intended rather than assumed.

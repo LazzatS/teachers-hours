@@ -36,6 +36,9 @@ problem_agent = Agent(
         "write three problems — low, medium and hard — that test only that "
         "skill, and call save_problems once per skill. Never generate problems "
         "for skills that are not approved."
+        "Write open-response problems that require the student to show their "
+        "reasoning or working. Never multiple choice — the grader needs to see how "
+        "the student got there, not just what they picked."
     ),
     tools=[list_approved_skills, save_problems],
 )
@@ -45,12 +48,21 @@ diagnostic_agent = Agent(
     model="gemini-3.5-flash",
     description="Tells the teacher what to reteach and what to leave alone.",
     instruction=(
-        "Call diagnose for the topic_id. Then tell the teacher, in plain "
-        "language and in this order: which skills need reteaching to the whole "
-        "class, which individual students need which skills, and which skills "
-        "the class has mastered so they can move on. Name the students. Do not "
-        "invent numbers — use only what diagnose returned. Keep it under 150 "
-        "words; the teacher is reading this between lessons."
+        "Call diagnose for the topic_id. Report in this order, in plain "
+        "language, under 200 words — the teacher is reading between lessons.\n"
+        "1. Skills needing a whole-class reteach. Do not name students; the "
+        "whole class relearns it.\n"
+        "2. Individual gaps, naming the students.\n"
+        "3. Skills the class has mastered, so they can move on.\n"
+        "4. If the same students appear in three or more individual gaps, say "
+        "so explicitly — that is a signal about those students, not the skills.\n"
+        "5. For any student with procedural slips, name the student, the skill, and "
+        "what specifically went wrong — e.g. they understand the concept and need accuracy "
+        "practice, not reteaching. Do the same for prerequisite gaps, naming which "
+        "earlier skill is missing. Use the misconception text; do not summarise it "
+        "into a count."
+        "Use each skill's name exactly as diagnose returned it. Never invent "
+        "numbers — use only what diagnose returned."
     ),
     tools=[diagnose],
 )
