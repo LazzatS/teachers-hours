@@ -1,9 +1,12 @@
 import uuid
 from google.cloud import firestore
+from datetime import datetime, timedelta, timezone
+import re
 
 DB_NAME = "teachers-hours"
 db = firestore.Client(database=DB_NAME)
 
+# STUDENT skills
 
 def save_skills(topic: str, skills: list[str]) -> dict:
     """Saves a topic and its skill breakdown to Firestore.
@@ -149,6 +152,12 @@ def diagnose(topic_id: str) -> dict:
     """
     topic_ref = db.collection("topics").document(topic_id)
     skills = {s.id: s.to_dict()["name"] for s in topic_ref.collection("skills").stream()}
+    
+    topic_data = topic_ref.get().to_dict() or {}
+    roster = topic_data.get("roster", [])
+    approved_skills = [sid for sid in skills]
+    expected = len(roster) * len(approved_skills)
+    submitted_pairs = set()
 
     tally = {sid: {"correct": 0, "total": 0, "missed_by": []} for sid in skills}
     prerequisite_gaps = {}
@@ -165,6 +174,7 @@ def diagnose(topic_id: str) -> dict:
             continue
 
         student = d["student_id"]
+        submitted_pairs.add((student, sid))
         error_type = d.get("error_type", "")
 
         # Pass rate is about the skill, so a procedural slip still counts as
@@ -183,6 +193,12 @@ def diagnose(topic_id: str) -> dict:
                 "skill": skills[sid],
                 "misconception": d.get("misconception", ""),
             })
+
+    missing_by_student = {}
+    for student in roster:
+        missing = [sid for sid in approved_skills if (student, sid) not in submitted_pairs]
+        if missing:
+            missing_by_student[student] = missing
 
     results = []
     for sid, t in sorted(tally.items()):
@@ -212,6 +228,8 @@ def diagnose(topic_id: str) -> dict:
         "procedural_slips": procedural_slips,
         "computed_at": firestore.SERVER_TIMESTAMP,
         "thresholds": {"mastered_at": MASTERED_AT, "class_gap_at": CLASS_GAP_AT},
+        "coverage": {"expected": expected, "submitted": len(submitted_pairs),
+             "missing_by_student": missing_by_student},
     })
 
     return {
@@ -220,4 +238,98 @@ def diagnose(topic_id: str) -> dict:
         "ungraded": ungraded,
         "prerequisite_gaps": prerequisite_gaps,
         "procedural_slips": procedural_slips,
+        "coverage": {"expected": expected, "submitted": len(submitted_pairs),
+             "missing_by_student": missing_by_student},
     }
+    
+
+# CLASS information
+
+def create_class(name: str, subject: str, students: list[str]) -> dict:
+    """Creates a class the teacher can assign topics to.
+
+    Args:
+        name: What the teacher calls the class, e.g. "9B".
+        subject: The subject taught, e.g. "Physics".
+        students: The student identifiers in the class.
+
+    Returns:
+        Status, the class_id, and how many students were added.
+    """
+    class_id = re.sub(r"[^a-z0-9]+", "-", f"{name}-{subject}".lower()).strip("-")
+    db.collection("classes").document(class_id).set({
+        "name": name,
+        "subject": subject,
+        "students": students,
+        "created_at": firestore.SERVER_TIMESTAMP,
+    })
+    return {"status": "ok", "class_id": class_id, "size": len(students)}
+
+
+def list_classes() -> dict:
+    """Lists the classes the teacher has created.
+
+    Returns:
+        Status and each class with its id, name, subject and size.
+    """
+    classes = [{
+        "class_id": c.id,
+        "name": c.to_dict().get("name", ""),
+        "subject": c.to_dict().get("subject", ""),
+        "size": len(c.to_dict().get("students", [])),
+    } for c in db.collection("classes").stream()]
+    return {"status": "ok", "classes": classes}
+
+
+def assign_to_class(topic_id: str, class_name: str, due_in_hours: int) -> dict:
+    """Assigns a topic's approved problems to a class with a deadline.
+
+    Args:
+        topic_id: The topic identifier.
+        class_name: What the teacher calls the class, e.g. "9B".
+        due_in_hours: Hours from now until the work is due.
+
+    Returns:
+        Status, the roster size, and when the work is due.
+    """
+    matches = [c for c in db.collection("classes").stream()
+               if c.to_dict().get("name", "").lower() == class_name.lower()]
+               
+    if not matches:
+        names = [c.to_dict().get("name") for c in db.collection("classes").stream()]
+        return {"status": "error", "message": f"No class '{class_name}'. Have: {names}"}
+    class_doc = matches[0]
+
+    students = class_doc.to_dict().get("students", [])
+    due_at = datetime.now(timezone.utc) + timedelta(hours=due_in_hours)
+
+    db.collection("topics").document(topic_id).update({
+        "class_name": class_name,
+        # Snapshot, not a live reference: if a student joins the class next
+        # month, this assignment's coverage numbers must not change.
+        "roster": students,
+        "due_at": due_at,
+        "assigned_at": firestore.SERVER_TIMESTAMP,
+        "status": "assigned",
+    })
+    return {"status": "ok", "roster_size": len(students),
+            "due_at": due_at.isoformat()}
+            
+
+def find_topic(title_fragment: str) -> dict:
+    """Finds recent topics whose title matches what the teacher describes.
+
+    Args:
+        title_fragment: Any part of the topic title, e.g. "speed" or "photosynthesis".
+
+    Returns:
+        Status and matching topics with their ids, titles, status and due dates.
+    """
+    hits = []
+    for t in db.collection("topics").order_by(
+            "created_at", direction=firestore.Query.DESCENDING).limit(30).stream():
+        d = t.to_dict()
+        if title_fragment.lower() in d.get("title", "").lower():
+            hits.append({"topic_id": t.id, "title": d.get("title"),
+                         "status": d.get("status"), "class_id": d.get("class_id")})
+    return {"status": "ok", "topics": hits[:5]}

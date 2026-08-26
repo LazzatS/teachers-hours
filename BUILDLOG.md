@@ -73,3 +73,26 @@
 - Seed script now generates three answer kinds per problem and records
   seeded_intent, so the grader's classification can be checked against what
   was intended rather than assumed.
+
+### Aug 25
+- Classes are their own collection now. Topics store a roster *snapshot* taken
+  at assignment time, not a live reference — if a student joins in October, a
+  September assignment's coverage numbers must not change retroactively.
+- Coverage-aware diagnosis: pass rates are computed over submitted work only.
+  A missing submission is never counted as a wrong answer. Not submitting is a
+  chasing-students problem; not understanding is a teaching problem, and
+  conflating them would make the verdict lie.
+- Killed IDs in the teacher's conversation. The agent was asking for topic_id
+  and class_id — teachers aren't programmers. Added find_topic (search by
+  title fragment), made assign_to_class resolve classes by name, and forbade
+  the coordinator from ever asking for an internal id. The fix wasn't a UI; it
+  was making the agent hold context it already had.
+- Full error taxonomy fired end to end on a logarithms topic: class-wide gap,
+  individual gaps, a repeat-student signal, a procedural slip, and prerequisite
+  gaps naming the specific missing skills (fractional exponents, factoring
+  quadratics). Two students failing the same skill got different diagnoses —
+  one needs accuracy practice, the other needs an earlier skill retaught.
+- Assigned a topic without a due date by accident and got a verdict anyway.
+  Made diagnose() refuse when roster is empty rather than reporting on partial
+  data. Same principle as list_approved_skills filtering on approved==True:
+  constraints belong in code, not in prompt instructions that can be skipped.
