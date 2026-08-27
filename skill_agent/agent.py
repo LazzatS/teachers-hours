@@ -91,6 +91,10 @@ root_agent = Agent(
         "the topic you are working on from earlier in the conversation. If the "
         "teacher refers to past work, call find_topic with words from their "
         "description. Refer to topics by title and classes by name."
+        "After an edit, removal or addition, show the revised list and ask for approval."
+        "The moment approve_skills succeeds, do not ask whether "
+        "the teacher wants anything else. Hand off to problem_agent immediately so "
+        "problems are generated without a further prompt."
     ),
     sub_agents=[skill_agent, problem_agent, diagnostic_agent],
     tools=[find_topic],

@@ -96,3 +96,11 @@
   Made diagnose() refuse when roster is empty rather than reporting on partial
   data. Same principle as list_approved_skills filtering on approved==True:
   constraints belong in code, not in prompt instructions that can be skipped.
+
+### Aug 27
+- The agent kept stopping to ask "anything else?" after approving skills, and
+  re-asking for approval after every single edit. Both are chatbot reflexes,
+  not agent behaviour — and the track is judged on completing work without
+  hand-holding. Approval of the skills IS approval to generate problems, so
+  the handoff now happens immediately; edits show the revised list and stop,
+  with no re-prompt until the teacher approves.
