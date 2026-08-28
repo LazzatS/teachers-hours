@@ -333,3 +333,68 @@ def find_topic(title_fragment: str) -> dict:
             hits.append({"topic_id": t.id, "title": d.get("title"),
                          "status": d.get("status"), "class_id": d.get("class_id")})
     return {"status": "ok", "topics": hits[:5]}
+
+def list_student_results(topic_id: str) -> dict:
+    """Groups each student's graded results, ready for composing one note each.
+
+    Args:
+        topic_id: The topic identifier.
+
+    Returns:
+        Status and, per student, every skill with whether they demonstrated it,
+        the error type, and the misconception.
+    """
+    topic_ref = db.collection("topics").document(topic_id)
+    skills = {s.id: s.to_dict()["name"] for s in topic_ref.collection("skills").stream()}
+    by_student = {}
+    for sub in topic_ref.collection("submissions").stream():
+        d = sub.to_dict()
+        if not d.get("graded"):
+            continue
+        by_student.setdefault(d["student_id"], []).append({
+            "skill": skills.get(d.get("skill_id"), ""),
+            "demonstrated": d.get("skill_demonstrated", d.get("correct")),
+            "error_type": d.get("error_type", ""),
+            "misconception": d.get("misconception", ""),
+        })
+    return {"status": "ok", "students": by_student}
+
+
+def save_student_note(topic_id: str, student_id: str, note: str) -> dict:
+    """Saves one composed feedback note for a student, held until released.
+
+    Args:
+        topic_id: The topic identifier.
+        student_id: Who the note is for.
+        note: The composed feedback, 4-6 sentences.
+
+    Returns:
+        Status and the student the note was saved for.
+    """
+    (db.collection("topics").document(topic_id)
+       .collection("notes").document(student_id)
+       .set({"student_id": student_id, "note": note,
+             "released": False, "drafted_at": firestore.SERVER_TIMESTAMP}))
+    return {"status": "ok", "student_id": student_id}
+
+
+def release_notes(topic_id: str, student_id: str = "") -> dict:
+    """Releases composed notes to students, or to one student.
+
+    Args:
+        topic_id: The topic identifier.
+        student_id: One student, or empty for everyone.
+
+    Returns:
+        Status and how many notes were released.
+    """
+    notes = db.collection("topics").document(topic_id).collection("notes")
+    released = 0
+    for n in notes.stream():
+        if n.to_dict().get("released"):
+            continue
+        if student_id and n.id != student_id:
+            continue
+        n.reference.update({"released": True, "released_at": firestore.SERVER_TIMESTAMP})
+        released += 1
+    return {"status": "ok", "released": released}

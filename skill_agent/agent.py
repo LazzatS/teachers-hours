@@ -11,7 +11,10 @@ from .tools import (
     create_class,
     list_classes,
     assign_to_class,
-    find_topic
+    find_topic,
+    list_student_results,
+    save_student_note,
+    release_notes
 )
 
 skill_agent = Agent(
@@ -73,8 +76,18 @@ diagnostic_agent = Agent(
         "into a count."
         "Use each skill's name exactly as diagnose returned it. Never invent "
         "numbers — use only what diagnose returned."
+        "After the diagnosis, call list_student_results and compose one note per "
+        "student, then save each with save_student_note. Each note is 4-6 sentences, "
+        "addressed to the student in second person:\n"
+        "- One sentence per skill they got wrong, naming what specifically went wrong.\n"
+        "- Group skills they got right into a single sentence.\n"
+        "- Group mistakes of the same kind into one sentence rather than repeating "
+        "yourself — several arithmetic slips are one point, not three.\n"
+        "- End with what to do next.\n"
+        "Show the notes to the teacher. They may reword any of them; save the "
+        "rewrite. Call release_notes only when they say to release."
     ),
-    tools=[diagnose],
+    tools=[diagnose, list_student_results, save_student_note, release_notes],
 )
 
 root_agent = Agent(

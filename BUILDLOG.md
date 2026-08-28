@@ -104,3 +104,22 @@
   hand-holding. Approval of the skills IS approval to generate problems, so
   the handoff now happens immediately; edits show the revised list and stop,
   with no re-prompt until the teacher approves.
+
+### Aug 28
+- Feedback needed its own composition step. The grader judges one answer at a
+  time, so releasing raw per-submission feedback would send a student sixteen
+  disconnected sentences. Added list_student_results (group by student),
+  save_student_note (one composed note, 4-6 sentences), release_notes.
+- The rule that makes the notes readable: one sentence per skill they got
+  wrong, all the skills they got right compressed into one, and mistakes of
+  the same kind grouped rather than repeated — three arithmetic slips are one
+  point, not three.
+- Worth naming: the aggregation that serves the teacher and the one that
+  serves the student are different shapes. The teacher needs per-skill and
+  class-wide; the student needs one paragraph about themselves. Same graded
+  data, two compositions — which is why composition is its own step rather
+  than concatenating feedback strings.
+- Deleted release_feedback / edit_feedback / list_drafted_feedback: they
+  operated on submissions, and two competing release paths would leave the
+  teacher unsure which one actually reached the student. Editing is just
+  re-calling save_student_note, which overwrites and keeps released=false.
