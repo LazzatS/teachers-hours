@@ -1,7 +1,5 @@
 # Teacher's Hours
 
-# Teacher's Hours
-
 **Get your hours back. Keep your judgment.**
 
 A teacher types a topic. An agent breaks it into assessable skills, writes
