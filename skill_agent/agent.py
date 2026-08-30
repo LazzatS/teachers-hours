@@ -50,7 +50,7 @@ problem_agent = Agent(
         "when it's due, then call assign_to_class. If they haven't created a class "
         "yet, call create_class first."
     ),
-    tools=[list_approved_skills, save_problems, assign_to_class],
+    tools=[list_approved_skills, save_problems, assign_to_class, create_class, list_classes],
 )
 
 diagnostic_agent = Agent(
