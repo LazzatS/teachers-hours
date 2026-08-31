@@ -44,7 +44,7 @@ lesson. So the decision gets made on instinct, or not at all.
 
 A wrong answer is not one thing. The grader separates:
 
-![Three kinds of wrong answer](docs/error-taxonomy.png)
+![Three kinds of wrong answer](docs/error-taxonomy-transparent.png)
 
 A procedural slip counts as **having demonstrated the skill**, so it never
 lowers a skill's pass rate. Reteaching a concept a student already holds is the
