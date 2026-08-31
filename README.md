@@ -177,6 +177,25 @@ Seed a class's submissions:
 python seed_submissions.py <topic_id>
 ```
 
+## Reproducible testing
+
+With `adk web` running at http://localhost:8000:
+
+1. Type a topic: `Maths: Linear Equations`
+2. The agent proposes skills. Reply `approve` (or `add a skill solve
+   one-step equations mentally` first, to see teacher corrections).
+3. Problems generate for each approved skill.
+4. Reply `create a class called 9B for Maths with ayan, dana, erlan and
+   madina`, then `assign to 9B, due in 48 hours`.
+5. Note the topic id from the conversation, then seed submissions:
+   `python seed_submissions.py <topic_id>`
+6. Wait ~30 seconds for the grading worker, then ask
+   `how did my class do?`
+
+Expected: one skill flagged for whole-class reteach, individual gaps with
+named students, at least one procedural slip identified separately, and one
+composed feedback note per student held for release.
+
 ## Scope and disclosure
 
 **Student submissions are simulated.** The student-facing app is out of scope
