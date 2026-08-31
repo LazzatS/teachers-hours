@@ -9,7 +9,7 @@ needs reteaching in class — and what one student can work on alone.
 Built for the All Things Agentic Hackathon (**Taskmaster** track), Aug 21–31 2026.
 
 - **Live:** https://teachers-hours-455997608773.europe-west1.run.app
-- **Demo video:** <YOUTUBE URL>
+- **Demo video:** [YOUTUBE](https://youtu.be/ktpbkSvf0vI)
 - **Architecture:** [docs/architecture.png](docs/architecture.png)
 
 ---
@@ -98,7 +98,7 @@ Teacher (ADK web UI)          Students (seeded for v1)
         │                     Cloud Run: grader (private)
         │                     Gemini grades each answer
         ▼                              │
-     Firestore  ◄─────────────────────┘
+     Firestore  ◄─────────────────────-┘
      topics · skills · problems · submissions · verdicts · notes
 ```
 
@@ -122,7 +122,7 @@ Requires a Google Cloud project with Vertex AI, Cloud Run, Firestore and
 Pub/Sub enabled, and a Firestore database in Native mode.
 
 ```bash
-git clone <REPO URL> && cd teachers-hours
+git clone git@github.com:LazzatS/teachers-hours.git && cd teachers-hours
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
